@@ -202,6 +202,27 @@ runs:
         host="${host#http://}"
         git config --unset-all "http.${server_url}/.extraheader" 2>/dev/null || true
         git remote set-url origin "https://${host}/${GITHUB_REPOSITORY}.git" 2>/dev/null || true
+        git config --global user.name "ask-bonk[bot]"
+        git config --global user.email "ask-bonk[bot]@users.noreply.github.com"
+        real_git="$(which git)"
+        mkdir -p /tmp/git-shim
+        cat << EOF > /tmp/git-shim/git
+#!/bin/sh
+for arg in "\$@"; do
+  case "\$arg" in
+    -*) continue ;;
+    push)
+      echo "[GUARD] Bypassing git push in review-only mode." >&2
+      exit 0
+      ;;
+    *) break ;;
+  esac
+done
+
+exec "$real_git" "\$@"
+EOF
+        chmod +x /tmp/git-shim/git
+        echo "/tmp/git-shim" >> "$GITHUB_PATH"
 
     - name: Run opencode
       if: |
@@ -257,3 +278,4 @@ runs:
         host="${host#http://}"
         git config --unset-all "http.${server_url}/.extraheader" 2>/dev/null || true
         git remote set-url origin "https://${host}/${GITHUB_REPOSITORY}.git" 2>/dev/null || true
+        rm -rf /tmp/git-shim 2>/dev/null || true
